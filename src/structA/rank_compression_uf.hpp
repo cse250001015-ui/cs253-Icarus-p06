@@ -4,73 +4,66 @@
 
 #include "../unionfind.hpp"
 
-#include <string>
 #include <vector>
+#include <cstdint>
+
+namespace perc {
 
 // Union-Find implementation using union by rank
-// and path compression.
+// and full path compression.
+//
+// This class inherits from the common UnionFind
+// interface defined by the Architect.
+
 class RankCompressionUF : public UnionFind {
+
 private:
 
     // parent[i] stores the parent of element i.
-    // If parent[i] == i, then i is a root.
+    // A root satisfies parent[i] == i.
     std::vector<int> parent;
 
-    // rank[i] stores the approximate height of the tree
-    // rooted at i. Only meaningful for root elements.
+    // rank[i] stores an upper bound on tree height.
+    // It is meaningful mainly for root elements.
     std::vector<int> rank;
 
-    // sz[i] stores the number of elements in the
-    // component rooted at i. Only meaningful for roots.
+    // sz[i] stores the number of elements in the set.
+    // The correct size is stored at the root.
     std::vector<int> sz;
-
-    // Performance counters used to measure the efficiency
-    // of the Union-Find operations.
-    long long finds = 0;
-    long long hops = 0;
-    long long unions = 0;
 
 public:
 
-    // Initializes n independent elements.
+    // Construct n independent singleton sets.
     explicit RankCompressionUF(int n);
 
-    // Finds the root of x and compresses the path
-    // to make future find operations faster.
+    // Find the representative of x.
+    // Compress the path to reduce future find costs.
     int find(int x) override;
 
-    // Merges the components containing x and y.
-    // Returns true if merged, false if already connected.
-    bool unite(int x, int y) override;
+    // Merge sets containing a and b using rank.
+    // Return true only if two sets were merged.
+    bool unite(int a, int b) override;
 
-    // Checks whether x and y belong to the same component.
-    bool connected(int x, int y) override;
-
-    // Returns the size of the component containing x.
+    // Return number of elements in x's component.
     int size(int x) override;
 
-    // Returns the number of find operations.
-    long long getFinds() const;
+    // Name used by benchmarks and application.
+    const char* name() const override;
 
-    // Returns the number of parent-pointer traversals.
-    long long getHops() const;
+    // Debug accessors required by invariant checkers.
+    // They must not modify the DSU or counters.
 
-    // Returns the number of successful union operations.
-    long long getUnions() const;
+    // Return the direct parent of x.
+    int parentOf(int x) const override;
 
-    // Debugging functions to inspect internal DSU state.
+    // Return the stored rank of x.
+    int rankOf(int x) const override;
 
-    // Returns the parent of element x.
-    int parentOf(int x) const;
-
-    // Returns the rank of element x.
-    int rankOf(int x) const;
-
-    // Returns the stored size at index x.
-    int sizeAtRoot(int x) const;
-
-    // Returns the name of this implementation.
-    std::string name() const override;
+    // Return the stored size at index r.
+    int sizeAtRoot(int r) const override;
 };
 
-#endif
+} // namespace perc
+
+#endif // RANK_COMPRESSION_UF_HPP
+
