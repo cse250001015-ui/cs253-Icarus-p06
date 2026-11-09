@@ -1,64 +1,71 @@
 
-#include "percolation.hpp"
+#include "../percolation.hpp"
 
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
 
-using namespace std;
-
 namespace perc {
 
-// Constructor: create an L x L blocked grid
-Percolation::Percolation(int L, Variant v, bool trackClusters)
-    : n_(L),
-      virtualTop_(L * L),
-      virtualBottom_(L * L + 1),
-      openCount_(0),
-      maxClusterSize_(0),
-      opened_(L * L, false),
-      ufPerc_(L * L + 2, v),
-      ufFull_(L * L + 1, v) {
-
-    // Check grid size
+// Check grid size before allocating memory
+static int checkGridSize(int L) {
     if (L <= 0 || L > 1000)
-        throw invalid_argument("Invalid grid size");
+        throw std::invalid_argument("Invalid grid size");
 
-    // Create cluster DSU only when requested
-    if (trackClusters) {
-        ufClust_ = make_unique<UnionFind>(L * L, v);
-    }
+    return L;
 }
 
-// Open the site at (r, c)
+// Constructor: initially all sites are blocked
+Percolation::Percolation(int L, Variant v, bool trackClusters)
+    : L_(checkGridSize(L)),
+      top_(L_ * L_),
+      bottom_(L_ * L_ + 1),
+      openCount_(0),
+      largest_(0),
+      percolated_(false),
+      opened_(L_ * L_, false),
+
+      // DSU for top-to-bottom percolation
+      ufPerc_(makeUnionFind(v, L_ * L_ + 2)),
+
+      // DSU for fullness: no virtual bottom
+      ufFull_(makeUnionFind(v, L_ * L_ + 1)),
+
+      // DSU for actual open-site cluster sizes
+      ufClust_(trackClusters
+          ? makeUnionFind(v, L_ * L_)
+          : nullptr) {
+}
+
+// Open site (r,c)
 bool Percolation::open(int r, int c) {
 
-    // Check whether coordinates are valid
-    if (r < 0 || r >= n_ || c < 0 || c >= n_)
-        throw out_of_range("Invalid row or column");
+    // Reject coordinates outside the grid
+    if (r < 0 || r >= L_ || c < 0 || c >= L_)
+        throw std::out_of_range("Invalid coordinates");
 
-    int id = r * n_ + c;
+    int idx = r * L_ + c;
 
-    // Return false if already open
-    if (opened_[id])
+    // Opening an already open site changes nothing
+    if (opened_[idx])
         return false;
 
-    // Mark site as open
-    opened_[id] = true;
+    opened_[idx] = true;
     openCount_++;
 
-    // Connect top-row sites to virtual top
+    // Connect top-row sites to virtual TOP
     if (r == 0) {
-        ufPerc_.unite(id, virtualTop_);
-        ufFull_.unite(id, virtualTop_);
+        ufPerc_->unite(idx, top_);
+        ufFull_->unite(idx, top_);
     }
 
-    // Connect bottom-row sites to virtual bottom
-    if (r == n_ - 1) {
-        ufPerc_.unite(id, virtualBottom_);
+    // Connect bottom-row sites to virtual BOTTOM
+    // Only the percolation DSU has BOTTOM
+    if (r == L_ - 1) {
+        ufPerc_->unite(idx, bottom_);
     }
 
-    // Four neighboring positions
+    // Fixed neighbor order: up, down, left, right
     const int dr[4] = {-1, 1, 0, 0};
     const int dc[4] = {0, 0, -1, 1};
 
@@ -68,34 +75,36 @@ bool Percolation::open(int r, int c) {
         int nc = c + dc[i];
 
         // Skip neighbors outside the grid
-        if (nr < 0 || nr >= n_ ||
-            nc < 0 || nc >= n_)
+        if (nr < 0 || nr >= L_ ||
+            nc < 0 || nc >= L_)
             continue;
 
-        int neighborId = nr * n_ + nc;
+        int nb = nr * L_ + nc;
 
-        // Skip blocked neighbors
-        if (!opened_[neighborId])
+        // Connect only with open neighbors
+        if (!opened_[nb])
             continue;
 
-        // Connect in the percolation DSU
-        ufPerc_.unite(id, neighborId);
+        // The first argument must be the new site
+        ufPerc_->unite(idx, nb);
+        ufFull_->unite(idx, nb);
 
-        // Connect in the fullness DSU
-        ufFull_.unite(id, neighborId);
-
-        // Connect in cluster DSU if enabled
         if (ufClust_) {
-            ufClust_->unite(id, neighborId);
+            ufClust_->unite(idx, nb);
         }
     }
 
-    // Update largest open-site cluster
+    // Update largest cluster using actual sites only
     if (ufClust_) {
-        maxClusterSize_ = max(
-            maxClusterSize_,
-            ufClust_->size(id)
+        largest_ = std::max(
+            largest_,
+            ufClust_->size(idx)
         );
+    }
+
+    // Check percolation only until it first occurs
+    if (!percolated_) {
+        percolated_ = ufPerc_->connected(top_, bottom_);
     }
 
     return true;
@@ -104,112 +113,121 @@ bool Percolation::open(int r, int c) {
 // Check whether a site is open
 bool Percolation::isOpen(int r, int c) const {
 
-    if (r < 0 || r >= n_ || c < 0 || c >= n_)
-        return false;
+    if (r < 0 || r >= L_ || c < 0 || c >= L_)
+        throw std::out_of_range("Invalid coordinates");
 
-    return opened_[r * n_ + c];
+    return opened_[r * L_ + c];
 }
 
-// Check whether an open site connects to top
+// A full site is an open site connected to TOP
 bool Percolation::isFull(int r, int c) {
 
-    // A blocked site cannot be full
     if (!isOpen(r, c))
         return false;
 
-    int id = r * n_ + c;
+    int idx = r * L_ + c;
 
-    // Fullness DSU excludes virtual bottom,
-    // preventing the backwash problem
-    return ufFull_.connected(id, virtualTop_);
+    // ufFull_ has no virtual BOTTOM
+    // This prevents backwash
+    return ufFull_->connected(idx, top_);
 }
 
-// Check whether the grid percolates
+// Return cached percolation status
 bool Percolation::percolates() {
-
-    return ufPerc_.connected(
-        virtualTop_,
-        virtualBottom_
-    );
+    return percolated_;
 }
 
-// Return the number of open sites
+// Number of currently open sites
 int Percolation::numOpen() const {
     return openCount_;
 }
 
-// Return largest open-site cluster
+// Size of the largest connected open-site cluster
 int Percolation::largestCluster() const {
 
-    if (!ufClust_)
-        throw logic_error("Cluster tracking is disabled");
+    if (!ufClust_) {
+        throw std::logic_error(
+            "Cluster tracking is disabled"
+        );
+    }
 
-    return maxClusterSize_;
+    return largest_;
 }
 
-// Return grid dimension
+// Return the grid dimension
 int Percolation::L() const {
-    return n_;
+    return L_;
 }
 
-// Return combined counters
+// Sum counters from all active DSUs
 Counters Percolation::counters() const {
 
-    Counters result = ufPerc_.counters();
+    Counters result{};
 
-    result += ufFull_.counters();
+    const Counters& a = ufPerc_->counters();
+    const Counters& b = ufFull_->counters();
+
+    result.finds = a.finds + b.finds;
+    result.hops = a.hops + b.hops;
+    result.unions = a.unions + b.unions;
 
     if (ufClust_) {
-        result += ufClust_->counters();
+        const Counters& c = ufClust_->counters();
+
+        result.finds += c.finds;
+        result.hops += c.hops;
+        result.unions += c.unions;
     }
 
     return result;
 }
 
-// Counters from percolation DSU
+// Percolation DSU counters
 const Counters& Percolation::countersPerc() const {
-    return ufPerc_.counters();
+    return ufPerc_->counters();
 }
 
-// Counters from fullness DSU
+// Fullness DSU counters
 const Counters& Percolation::countersFull() const {
-    return ufFull_.counters();
+    return ufFull_->counters();
 }
 
-// Counters from cluster DSU
+// Cluster DSU counters
 const Counters& Percolation::countersClust() const {
 
-    if (!ufClust_)
-        throw logic_error("Cluster tracking is disabled");
+    if (!ufClust_) {
+        throw std::logic_error(
+            "Cluster tracking is disabled"
+        );
+    }
 
     return ufClust_->counters();
 }
 
-// Reset operation counters
+// Reset operation counters without changing connectivity
 void Percolation::resetCounters() {
 
-    ufPerc_.resetCounters();
-    ufFull_.resetCounters();
+    ufPerc_->resetCounters();
+    ufFull_->resetCounters();
 
     if (ufClust_) {
         ufClust_->resetCounters();
     }
 }
 
-// Read-only access to percolation DSU
+// Read-only access for invariant checkers
 const UnionFind& Percolation::ufPerc() const {
-    return ufPerc_;
+    return *ufPerc_;
 }
 
-// Read-only access to fullness DSU
 const UnionFind& Percolation::ufFull() const {
-    return ufFull_;
+    return *ufFull_;
 }
 
-// Read-only access to cluster DSU
 const UnionFind* Percolation::ufClust() const {
     return ufClust_.get();
 }
 
 } // namespace perc
+
 
