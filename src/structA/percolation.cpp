@@ -1,209 +1,215 @@
 
-#include <bits/stdc++.h>
-#include "rank_compression_uf.hpp"
+#include "percolation.hpp"
+
+#include <algorithm>
+#include <memory>
+#include <stdexcept>
 
 using namespace std;
 
-// Percolation class represents an N x N grid
-// Each site is initially blocked
-// Open sites are connected using Union-Find
+namespace perc {
 
-class Percolation {
+// Constructor: create an L x L blocked grid
+Percolation::Percolation(int L, Variant v, bool trackClusters)
+    : n_(L),
+      virtualTop_(L * L),
+      virtualBottom_(L * L + 1),
+      openCount_(0),
+      maxClusterSize_(0),
+      opened_(L * L, false),
+      ufPerc_(L * L + 2, v),
+      ufFull_(L * L + 1, v) {
 
-private:
-    int n;                  // Grid dimension
-    int virtualTop;         // Virtual node connected to top row
-    int virtualBottom;      // Virtual node connected to bottom row
+    // Check grid size
+    if (L <= 0 || L > 1000)
+        throw invalid_argument("Invalid grid size");
 
-    int openCount = 0;      // Number of open sites
-    int maxClusterSize = 0; // Largest cluster of open sites
+    // Create cluster DSU only when requested
+    if (trackClusters) {
+        ufClust_ = make_unique<UnionFind>(L * L, v);
+    }
+}
 
-    // false = blocked, true = open
-    vector<vector<bool>> opened;
+// Open the site at (r, c)
+bool Percolation::open(int r, int c) {
 
-    // DSU 1: Detects whether the grid percolates
-    // Contains both virtual top and bottom nodes
-    DSU dsu;
+    // Check whether coordinates are valid
+    if (r < 0 || r >= n_ || c < 0 || c >= n_)
+        throw out_of_range("Invalid row or column");
 
-    // DSU 2: Checks whether a site is full
-    // Contains only virtual top to prevent backwash
-    DSU fullnessDsu;
+    int id = r * n_ + c;
 
-    // DSU 3: Tracks actual cluster sizes
-    // Does not contain virtual nodes
-    DSU clusterDsu;
+    // Return false if already open
+    if (opened_[id])
+        return false;
 
-    // Convert row and column to a unique 1D index
-    // Example: In a 5x5 grid, (2,3) becomes 13
-    int getId(int row, int col) const {
-        return row * n + col;
+    // Mark site as open
+    opened_[id] = true;
+    openCount_++;
+
+    // Connect top-row sites to virtual top
+    if (r == 0) {
+        ufPerc_.unite(id, virtualTop_);
+        ufFull_.unite(id, virtualTop_);
     }
 
-    // Check whether a site lies inside the grid
-    bool valid(int row, int col) const {
-        return row >= 0 && row < n &&
-               col >= 0 && col < n;
+    // Connect bottom-row sites to virtual bottom
+    if (r == n_ - 1) {
+        ufPerc_.unite(id, virtualBottom_);
     }
 
-    // Connect the current site with a neighboring site
-    // Only connect if that neighboring site is open
-    void connectNeighbor(int row, int col,
-                         int nr, int nc) {
+    // Four neighboring positions
+    const int dr[4] = {-1, 1, 0, 0};
+    const int dc[4] = {0, 0, -1, 1};
 
-        // Ignore neighbors outside the grid
-        if (!valid(nr, nc))
-            return;
+    for (int i = 0; i < 4; i++) {
 
-        // Ignore blocked neighbors
-        if (!opened[nr][nc])
-            return;
+        int nr = r + dr[i];
+        int nc = c + dc[i];
 
-        int a = getId(row, col);
-        int b = getId(nr, nc);
+        // Skip neighbors outside the grid
+        if (nr < 0 || nr >= n_ ||
+            nc < 0 || nc >= n_)
+            continue;
 
-        // Update percolation connectivity
-        dsu.unite(a, b);
+        int neighborId = nr * n_ + nc;
 
-        // Update fullness connectivity
-        fullnessDsu.unite(a, b);
+        // Skip blocked neighbors
+        if (!opened_[neighborId])
+            continue;
 
-        // Update actual cluster connectivity
-        clusterDsu.unite(a, b);
-    }
+        // Connect in the percolation DSU
+        ufPerc_.unite(id, neighborId);
 
-public:
+        // Connect in the fullness DSU
+        ufFull_.unite(id, neighborId);
 
-    // Constructor: Create an N x N blocked grid
-    explicit Percolation(int size)
-        : n(size),
-          virtualTop(size * size),
-          virtualBottom(size * size + 1),
-
-          opened(size, vector<bool>(size, false)),
-
-          // N*N sites + virtual top + virtual bottom
-          dsu(size * size + 2),
-
-          // N*N sites + virtual top only
-          fullnessDsu(size * size + 1),
-
-          // N*N actual sites only
-          clusterDsu(size * size) {
-
-        if (size <= 0 || size > 1000)
-            throw invalid_argument("Invalid grid size");
-    }
-
-    // Open the site at (row, col)
-    void open(int row, int col) {
-
-        // Reject invalid coordinates
-        if (!valid(row, col))
-            throw out_of_range("Invalid row or column");
-
-        // A site already open should not be counted again
-        if (opened[row][col])
-            return;
-
-        // Mark site as open
-        opened[row][col] = true;
-        openCount++;
-
-        int id = getId(row, col);
-
-        // If site is in the top row,
-        // connect it to virtual top in both DSUs
-        if (row == 0) {
-            dsu.unite(id, virtualTop);
-            fullnessDsu.unite(id, virtualTop);
+        // Connect in cluster DSU if enabled
+        if (ufClust_) {
+            ufClust_->unite(id, neighborId);
         }
-
-        // If site is in the bottom row,
-        // connect it to virtual bottom only in dsu
-        if (row == n - 1) {
-            dsu.unite(id, virtualBottom);
-        }
-
-        // Connect all four adjacent open sites
-        connectNeighbor(row, col, row - 1, col); // Up
-        connectNeighbor(row, col, row + 1, col); // Down
-        connectNeighbor(row, col, row, col - 1); // Left
-        connectNeighbor(row, col, row, col + 1); // Right
-
-        // Find the size of this site's connected cluster
-        int currentSize = clusterDsu.size(id);
-
-        // Update maximum cluster size
-        maxClusterSize = max(maxClusterSize, currentSize);
     }
 
-    // Return true if the site is open
-    bool isOpen(int row, int col) const {
-        return valid(row, col) && opened[row][col];
-    }
-
-    // Return true if open sites connect top to bottom
-    bool percolates() {
-        return dsu.connected(virtualTop, virtualBottom);
-    }
-
-    // A site is full if it is open and connected
-    // to the top row through open sites
-    bool isFull(int row, int col) {
-
-        // A blocked site can never be full
-        if (!isOpen(row, col))
-            return false;
-
-        // Use fullnessDsu to avoid backwash
-        return fullnessDsu.connected(
-            getId(row, col), virtualTop
+    // Update largest open-site cluster
+    if (ufClust_) {
+        maxClusterSize_ = max(
+            maxClusterSize_,
+            ufClust_->size(id)
         );
     }
 
-    // Return total number of open sites
-    int numOpen() const {
-        return openCount;
+    return true;
+}
+
+// Check whether a site is open
+bool Percolation::isOpen(int r, int c) const {
+
+    if (r < 0 || r >= n_ || c < 0 || c >= n_)
+        return false;
+
+    return opened_[r * n_ + c];
+}
+
+// Check whether an open site connects to top
+bool Percolation::isFull(int r, int c) {
+
+    // A blocked site cannot be full
+    if (!isOpen(r, c))
+        return false;
+
+    int id = r * n_ + c;
+
+    // Fullness DSU excludes virtual bottom,
+    // preventing the backwash problem
+    return ufFull_.connected(id, virtualTop_);
+}
+
+// Check whether the grid percolates
+bool Percolation::percolates() {
+
+    return ufPerc_.connected(
+        virtualTop_,
+        virtualBottom_
+    );
+}
+
+// Return the number of open sites
+int Percolation::numOpen() const {
+    return openCount_;
+}
+
+// Return largest open-site cluster
+int Percolation::largestCluster() const {
+
+    if (!ufClust_)
+        throw logic_error("Cluster tracking is disabled");
+
+    return maxClusterSize_;
+}
+
+// Return grid dimension
+int Percolation::L() const {
+    return n_;
+}
+
+// Return combined counters
+Counters Percolation::counters() const {
+
+    Counters result = ufPerc_.counters();
+
+    result += ufFull_.counters();
+
+    if (ufClust_) {
+        result += ufClust_->counters();
     }
 
-    // Check whether two open sites are connected
-    bool connected(int r1, int c1,
-                   int r2, int c2) {
+    return result;
+}
 
-        // Both sites must be open
-        if (!isOpen(r1, c1) || !isOpen(r2, c2))
-            return false;
+// Counters from percolation DSU
+const Counters& Percolation::countersPerc() const {
+    return ufPerc_.counters();
+}
 
-        // Use clusterDsu so virtual nodes do not
-        // incorrectly connect separate clusters
-        return clusterDsu.connected(
-            getId(r1, c1),
-            getId(r2, c2)
-        );
+// Counters from fullness DSU
+const Counters& Percolation::countersFull() const {
+    return ufFull_.counters();
+}
+
+// Counters from cluster DSU
+const Counters& Percolation::countersClust() const {
+
+    if (!ufClust_)
+        throw logic_error("Cluster tracking is disabled");
+
+    return ufClust_->counters();
+}
+
+// Reset operation counters
+void Percolation::resetCounters() {
+
+    ufPerc_.resetCounters();
+    ufFull_.resetCounters();
+
+    if (ufClust_) {
+        ufClust_->resetCounters();
     }
+}
 
-    // Get the number of sites in a connected cluster
-    int clusterSize(int row, int col) {
+// Read-only access to percolation DSU
+const UnionFind& Percolation::ufPerc() const {
+    return ufPerc_;
+}
 
-        // Blocked sites belong to no open cluster
-        if (!isOpen(row, col))
-            return 0;
+// Read-only access to fullness DSU
+const UnionFind& Percolation::ufFull() const {
+    return ufFull_;
+}
 
-        return clusterDsu.size(getId(row, col));
-    }
+// Read-only access to cluster DSU
+const UnionFind* Percolation::ufClust() const {
+    return ufClust_.get();
+}
 
-    // Return size of largest open cluster
-    int largestCluster() const {
-        return maxClusterSize;
-    }
+} // namespace perc
 
-    // Return grid dimension
-    int gridSize() const {
-        return n;
-    }
-
-    // Return fraction of sites currently open
-    double occupationFraction() const {
-        return static_cast<double>(openCount) / (n * n);
-    }
-};
