@@ -4,7 +4,6 @@
 #include "unionfind.hpp"
 #include <memory>
 #include <vector>
-using namespace std;
 
 namespace perc {
 
@@ -17,7 +16,7 @@ public:
     bool isFull(int r, int c);          // open AND reachable from the top row (no backwash)
     bool percolates();                  // cached flag
     int  numOpen() const;
-    int  largestCluster() const;        // requires trackClusters == true; 0 if none open
+    int  largestCluster() const;        // throws std::logic_error if trackClusters == false; 0 if none open
     int  L() const;
 
     Counters counters() const;          // sum of the three below
@@ -41,10 +40,10 @@ private:
     int  numOpen_    = 0;
     int  largest_    = 0;
     bool percolated_ = false;
-    vector<char> open_;
-    unique_ptr<UnionFind> ufPerc_;    // L*L+2 elements, TOP and BOTTOM
-    unique_ptr<UnionFind> ufFull_;    // L*L+1 elements, TOP only (no BOTTOM)
-    unique_ptr<UnionFind> ufClust_;   // L*L elements, no virtual nodes
+    std::vector<char> open_;
+    std::unique_ptr<UnionFind> ufPerc_;    // L*L+2 elements, TOP and BOTTOM
+    std::unique_ptr<UnionFind> ufFull_;    // L*L+1 elements, TOP only (no BOTTOM)
+    std::unique_ptr<UnionFind> ufClust_;   // L*L elements, no virtual nodes
 };
 
 }  // namespace perc

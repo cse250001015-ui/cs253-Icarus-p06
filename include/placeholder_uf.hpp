@@ -4,7 +4,6 @@
 #pragma once
 #include "unionfind.hpp"
 #include <vector>
-using namespace std;
 
 namespace perc {
 
@@ -35,7 +34,7 @@ public:
     int sizeAtRoot(int r) const override { return size_[r]; }
 
 private:
-    vector<int> parent_, size_;
+    std::vector<int> parent_, size_;
 };
 
 }  // namespace perc

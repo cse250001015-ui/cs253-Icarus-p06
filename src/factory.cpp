@@ -5,11 +5,10 @@
 #include "placeholder_uf.hpp"
 #include <cstdio>
 #include <cstring>
-using namespace std;
 
 namespace perc {
 
-unique_ptr<UnionFind> makeUnionFind(Variant v, int n) {
+std::unique_ptr<UnionFind> makeUnionFind(Variant v, int n) {
     static bool warned[4] = {false, false, false, false};
     int k = static_cast<int>(v);
     if (!warned[k]) {

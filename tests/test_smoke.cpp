@@ -23,6 +23,7 @@ int main() {
     CHECK(perm);
     CHECK(sweepSeed(7, 50, 3) == sweepSeed(7, 50, 3));
     CHECK(sweepSeed(7, 50, 3) != sweepSeed(7, 50, 4));
+    CHECK(sweepSeed(7, 50, 4) != sweepSeed(8, 50, 3));   // neighbouring base seeds must not share sweeps
 
     // union-find through the factory
     auto uf = makeUnionFind(Variant::Naive, 10);
@@ -46,6 +47,13 @@ int main() {
     CHECK(threw);
     Percolation q(3, Variant::Naive, false);
     CHECK(q.ufClust() == nullptr);
+
+    // constructor guards: L must be in [1, 46340], checked before any allocation
+    bool big = false, zero = false;
+    try { Percolation bad(46341, Variant::Naive, false); } catch (const std::invalid_argument&) { big = true; }
+    try { Percolation bad(0, Variant::Naive, false); } catch (const std::invalid_argument&) { zero = true; }
+    CHECK(big);
+    CHECK(zero);
 
     if (failures == 0) std::puts("test_smoke: all checks passed");
     return failures ? 1 : 0;

@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
-using namespace std;
 
 namespace perc {
 
@@ -27,6 +26,8 @@ uint64_t splitmix64(uint64_t x);
 uint64_t sweepSeed(uint64_t baseSeed, int L, int sweepIndex);
 std::vector<int> makeOpeningOrder(int L, uint64_t seed);   // permutation of 0 .. L*L-1
 
+// Opens sites in the given order (distinct indices; need not cover the whole grid).
+// cb may be empty (a no-op run): check if (cb) before every call.
 SweepResult runSweepOrder(int L, Variant v, const std::vector<int>& order,
                           const SweepCallback& cb, bool trackClusters = true,
                           bool stopAtPercolation = false);

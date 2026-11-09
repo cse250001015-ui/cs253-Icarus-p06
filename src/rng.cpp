@@ -2,7 +2,6 @@
 #include "sweep.hpp"
 #include <random>
 #include <utility>
-using namespace std;
 
 namespace perc {
 
@@ -14,17 +13,18 @@ uint64_t splitmix64(uint64_t x) {
 }
 
 uint64_t sweepSeed(uint64_t baseSeed, int L, int sweepIndex) {
-    return splitmix64(baseSeed + static_cast<uint64_t>(L) * 1000003ULL + static_cast<uint64_t>(sweepIndex));
+    // Mix at every step so that neighbouring base seeds do not share sweeps (INTERFACE.md 5.1).
+    return splitmix64(splitmix64(splitmix64(baseSeed) ^ static_cast<uint64_t>(L)) ^ static_cast<uint64_t>(sweepIndex));
 }
 
-vector<int> makeOpeningOrder(int L, uint64_t seed) {
+std::vector<int> makeOpeningOrder(int L, uint64_t seed) {
     const int N = L * L;
-    vector<int> a(N);
+    std::vector<int> a(N);
     for (int i = 0; i < N; ++i) a[i] = i;
-    mt19937_64 rng(seed);
+    std::mt19937_64 rng(seed);
     for (int i = N - 1; i >= 1; --i) {
         int j = static_cast<int>(rng() % static_cast<uint64_t>(i + 1));
-        swap(a[i], a[j]);
+        std::swap(a[i], a[j]);
     }
     return a;
 }

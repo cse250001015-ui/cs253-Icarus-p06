@@ -3,7 +3,6 @@
 // open, isFull, percolates, largestCluster. Follow INTERFACE.md 4.2 step by step.
 #include "percolation.hpp"
 #include <stdexcept>
-using namespace std;
 
 namespace perc {
 
@@ -15,9 +14,14 @@ static Counters sumCounters(const Counters& a, const Counters& b) {
     return t;
 }
 
+// Validates L before anything is allocated: 1 <= L <= 46340 (L*L must fit in int).
+static size_t checkedCells(int L) {
+    if (L < 1 || L > 46340) throw std::invalid_argument("Percolation: L must be in [1, 46340]");
+    return static_cast<size_t>(L) * static_cast<size_t>(L);
+}
+
 Percolation::Percolation(int L, Variant v, bool trackClusters)
-    : L_(L), trackClusters_(trackClusters), open_(L > 0 ? static_cast<size_t>(L) * L : 0, 0) {
-    if (L < 1) throw std::invalid_argument("Percolation: L must be >= 1");
+    : L_(L), trackClusters_(trackClusters), open_(checkedCells(L), 0) {
     ufPerc_ = makeUnionFind(v, L * L + 2);
     ufFull_ = makeUnionFind(v, L * L + 1);
     if (trackClusters) ufClust_ = makeUnionFind(v, L * L);
@@ -63,6 +67,8 @@ bool Percolation::percolates() {
     throw std::logic_error("Percolation::percolates not implemented");
 }
 int Percolation::largestCluster() const {
+    // TODO: if (!trackClusters_) throw std::logic_error("largestCluster: clusters are not tracked");
+    //       then return largest_ (INTERFACE.md section 4).
     throw std::logic_error("Percolation::largestCluster not implemented");
 }
 
