@@ -1,152 +1,145 @@
 
 #include "rank_compression_uf.hpp"
 
+#include <cassert>
 #include <numeric>
 #include <stdexcept>
-#include <utility>
 
-// Constructor: initializes n independent elements.
-RankCompressionUF::RankCompressionUF(int n) {
+namespace perc {
 
-    if (n <= 0) {
-        throw std::invalid_argument("Union-Find size must be positive");
-    }
+// Constructor: Initially, every element belongs
+// to its own separate set.
+RankCompressionUF::RankCompressionUF(int n)
+    : UnionFind(n),
+      parent(n),
+      rank(n, 0),
+      sz(n, 1) {
 
-    // Initially, every element is its own parent.
-    parent.resize(n);
+    if (n < 0)
+        throw std::invalid_argument("Invalid DSU size");
+
+    // Initially, each element is its own parent.
+    // Example: parent = [0, 1, 2, 3, 4]
     std::iota(parent.begin(), parent.end(), 0);
-
-    // Every element starts with rank 0.
-    rank.resize(n, 0);
-
-    // Every element initially belongs to a component of size 1.
-    sz.resize(n, 1);
 }
 
-// Finds the root of x using path compression.
+// Find the representative/root of element x.
+// Full path compression makes all nodes on the
+// search path point directly to the root.
 int RankCompressionUF::find(int x) {
 
-    // Validate the given index.
-    if (x < 0 || x >= static_cast<int>(parent.size())) {
-        throw std::out_of_range("Invalid Union-Find index");
-    }
+    assert(x >= 0 && x < n_);
 
-    ++finds;
+    // Count every invocation of find().
+    cnt_.finds++;
 
-    // First, find the root of the component.
-    int root = x;
+    // If x is its own parent, it is the root.
+    if (parent[x] == x)
+        return x;
 
-    while (parent[root] != root) {
-        ++hops;
-        root = parent[root];
-    }
+    // Count one parent-pointer traversal.
+    cnt_.hops++;
 
-    // Compress the path by making visited nodes
-    // point directly to the root.
-    while (parent[x] != x) {
-        int next = parent[x];
-        parent[x] = root;
-        x = next;
-    }
+    // Recursively find root and compress the path.
+    parent[x] = find(parent[x]);
 
-    return root;
+    return parent[x];
 }
 
-// Merges two components using union by rank.
-bool RankCompressionUF::unite(int x, int y) {
+// Merge the sets containing a and b.
+// The root with smaller rank is attached
+// under the root with larger rank.
+bool RankCompressionUF::unite(int a, int b) {
 
-    int rootX = find(x);
-    int rootY = find(y);
+    assert(a >= 0 && a < n_);
+    assert(b >= 0 && b < n_);
 
-    // If both elements have the same root,
-    // they are already in the same component.
-    if (rootX == rootY) {
+    int rootA = find(a);
+    int rootB = find(b);
+
+    // Already in the same component.
+    if (rootA == rootB)
         return false;
+
+    // If rootA has a smaller rank, attach it
+    // below rootB.
+    if (rank[rootA] < rank[rootB]) {
+
+        parent[rootA] = rootB;
+        sz[rootB] += sz[rootA];
+
+    } else if (rank[rootA] > rank[rootB]) {
+
+        // If rootB has a smaller rank,
+        // attach it below rootA.
+        parent[rootB] = rootA;
+        sz[rootA] += sz[rootB];
+
+    } else {
+
+        // Equal ranks: attach rootB under rootA.
+        // This is the fixed tie-breaking rule.
+        parent[rootB] = rootA;
+        rank[rootA]++;
+        sz[rootA] += sz[rootB];
     }
 
-    // Attach the tree with smaller rank
-    // below the tree with larger rank.
-    if (rank[rootX] < rank[rootY]) {
-        std::swap(rootX, rootY);
-    }
-
-    // Merge the smaller tree into the larger tree.
-    parent[rootY] = rootX;
-
-    // Update the size of the new root's component.
-    sz[rootX] += sz[rootY];
-
-    // If both trees had equal rank,
-    // increase the rank of the new root.
-    if (rank[rootX] == rank[rootY]) {
-        ++rank[rootX];
-    }
-
-    // Count successful union operations.
-    ++unions;
+    // Count one successful component merge.
+    cnt_.unions++;
 
     return true;
 }
 
-// Checks whether two elements belong to the same component.
-bool RankCompressionUF::connected(int x, int y) {
-    return find(x) == find(y);
-}
-
-// Returns the size of the component containing x.
+// Return the number of elements in the
+// component containing x.
 int RankCompressionUF::size(int x) {
 
+    assert(x >= 0 && x < n_);
+
+    // Find the root, then return its stored size.
     int root = find(x);
 
     return sz[root];
 }
 
-// Returns the number of find operations.
-long long RankCompressionUF::getFinds() const {
-    return finds;
+// Return implementation name used by the
+// factory, application and benchmark.
+const char* RankCompressionUF::name() const {
+    return "rank_compress";
 }
 
-// Returns the number of parent-pointer traversals.
-long long RankCompressionUF::getHops() const {
-    return hops;
-}
-
-// Returns the number of successful union operations.
-long long RankCompressionUF::getUnions() const {
-    return unions;
-}
-
-// Returns the parent of element x.
+// Return the direct parent of element x.
+//
+// Debug accessor: does not call find(),
+// compress paths, or change counters.
 int RankCompressionUF::parentOf(int x) const {
 
-    if (x < 0 || x >= static_cast<int>(parent.size())) {
-        throw std::out_of_range("Invalid Union-Find index");
-    }
+    assert(x >= 0 && x < n_);
 
     return parent[x];
 }
 
-// Returns the rank of element x.
+// Return the stored rank of element x.
+//
+// Debug accessor: does not change the DSU.
+// Rank is meaningful for root nodes.
 int RankCompressionUF::rankOf(int x) const {
 
-    if (x < 0 || x >= static_cast<int>(rank.size())) {
-        throw std::out_of_range("Invalid Union-Find index");
-    }
+    assert(x >= 0 && x < n_);
 
     return rank[x];
 }
 
-// Returns the stored component size at index x.
-int RankCompressionUF::sizeAtRoot(int x) const {
+// Return the stored component size at index r.
+//
+// This is meaningful when r is a root.
+// Does not call find() or change counters.
+int RankCompressionUF::sizeAtRoot(int r) const {
 
-    if (x < 0 || x >= static_cast<int>(sz.size())) {
-        throw std::out_of_range("Invalid Union-Find index");
-    }
+    assert(r >= 0 && r < n_);
 
-    return sz[x];
+    return sz[r];
 }
 
-// Returns the name of this Union-Find implementation.
-std::string RankCompressionUF::name() const {
-    return "RankCompressionUF";
-}
+} // namespace perc
+
