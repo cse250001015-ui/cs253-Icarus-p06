@@ -2,7 +2,7 @@
 #ifndef RANK_COMPRESSION_UF_HPP
 #define RANK_COMPRESSION_UF_HPP
 
-#include "../unionfind.hpp"
+#include "unionfind.hpp"
 
 #include <vector>
 #include <cstdint>
