@@ -1,6 +1,4 @@
-// src/structA/sweep.cpp -- owner: Structure A owner.
-// runSweepOrder is the Newman-Ziff sweep (INTERFACE.md section 5). TODO.
-#include "sweep.hpp"
+#include "../../include/sweep.hpp"
 #include <stdexcept>
 
 namespace perc {
@@ -14,11 +12,10 @@ SweepResult runSweepOrder(
     bool trackClusters,
     bool stopAtPercolation
 ) {
-    // Validate the grid dimension
-    if (L < 1 || L > 46339)
-        throw std::invalid_argument("Invalid grid size");
+    
+    Percolation grid(L, v, trackClusters);
 
-    int total = L * L;
+int total = L * L;
 
     // Check whether every site index is valid and unique
     std::vector<unsigned char> visited(total, 0);
@@ -35,9 +32,6 @@ SweepResult runSweepOrder(
 
         visited[idx] = 1;
     }
-
-    // Create an initially blocked percolation grid
-    Percolation grid(L, v, trackClusters);
 
     // Store the results of this sweep
     SweepResult result{};
