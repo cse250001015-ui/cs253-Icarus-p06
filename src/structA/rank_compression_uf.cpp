@@ -7,44 +7,53 @@
 
 namespace perc {
 
-// Constructor: Initially, every element belongs
-// to its own separate set.
-RankCompressionUF::RankCompressionUF(int n)
-    : UnionFind(n),
-      parent(n),
-      rank(n, 0),
-      sz(n, 1) {
-
+static int checkedSize(int n) {
     if (n < 0)
         throw std::invalid_argument("Invalid DSU size");
 
-    // Initially, each element is its own parent.
-    // Example: parent = [0, 1, 2, 3, 4]
+    return n;
+}
+
+// Constructor: Initially, every element belongs
+// to its own separate set.
+RankCompressionUF::RankCompressionUF(int n)
+    : UnionFind(checkedSize(n)),
+      parent(n),
+      rank(n, 0),
+      sz(n, 1)
+{
     std::iota(parent.begin(), parent.end(), 0);
 }
 
 // Find the representative/root of element x.
 // Full path compression makes all nodes on the
 // search path point directly to the root.
-int RankCompressionUF::find(int x) {
 
+int RankCompressionUF::find(int x) {
     assert(x >= 0 && x < n_);
 
-    // Count every invocation of find().
+    // Count only the original call to find()
     cnt_.finds++;
 
-    // If x is its own parent, it is the root.
+    return findRoot(x);
+}
+
+// Recursive helper that performs path compression
+int RankCompressionUF::findRoot(int x) {
+
+    // If x is the root, return it
     if (parent[x] == x)
         return x;
 
-    // Count one parent-pointer traversal.
+    // Count one parent-pointer traversal
     cnt_.hops++;
 
-    // Recursively find root and compress the path.
-    parent[x] = find(parent[x]);
+    // Find the root and compress the path
+    parent[x] = findRoot(parent[x]);
 
     return parent[x];
 }
+
 
 // Merge the sets containing a and b.
 // The root with smaller rank is attached
@@ -142,3 +151,4 @@ int RankCompressionUF::sizeAtRoot(int r) const {
 }
 
 } // namespace perc
+
