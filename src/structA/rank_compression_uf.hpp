@@ -31,6 +31,10 @@ private:
     // The correct size is stored at the root.
     std::vector<int> sz;
 
+    // Recursive helper for path compression.
+    // Does not count additional find calls.
+    int findRoot(int x);
+
 public:
 
     // Construct n independent singleton sets.
