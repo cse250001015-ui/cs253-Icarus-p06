@@ -1,6 +1,4 @@
-// src/structA/percolation.cpp -- owner: Structure A owner.
-// The plumbing (constructor, getters) is done. The four methods that hold the logic are TODO:
-// open, isFull, percolates, largestCluster. Follow INTERFACE.md 4.2 step by step.
+
 #include "../../include/percolation.hpp"
 #include <algorithm>
 #include <stdexcept>
