@@ -5,10 +5,11 @@
 # built with -DNDEBUG so asserts do not distort timings.
 CXX      ?= g++
 CXXFLAGS ?= -O2 -std=c++17 -Wall -Wextra
-INC      := -Iinclude -Isrc -I.
+INC      := -Iinclude -Isrc -Ioracle -Itests -I.
 
-LIB_SRC := $(wildcard src/*.cpp) $(wildcard src/structA/*.cpp) $(wildcard src/structB/*.cpp) \
-           $(wildcard oracle/*.cpp)
+LIB_SRC := $(filter-out %_main.cpp $(wildcard src/structB/test_*.cpp), \
+           $(wildcard src/*.cpp) $(wildcard src/structA/*.cpp) $(wildcard src/structB/*.cpp) \
+           $(wildcard oracle/*.cpp))
 DBG_OBJ := $(LIB_SRC:%.cpp=build/dbg/%.o)
 REL_OBJ := $(LIB_SRC:%.cpp=build/rel/%.o)
 
@@ -25,8 +26,12 @@ build/rel/%.o: %.cpp
 
 build/percolation_app: $(wildcard app/*.cpp) $(REL_OBJ)
 	$(CXX) $(CXXFLAGS) -DNDEBUG $(INC) $^ -o $@
-build/bench: $(wildcard bench/*.cpp) $(REL_OBJ)
+BENCH_BIN := $(patsubst bench/%.cpp,build/%,$(wildcard bench/bench_*.cpp))
+build/bench_%: bench/bench_%.cpp $(REL_OBJ)
+	@mkdir -p build
 	$(CXX) $(CXXFLAGS) -DNDEBUG $(INC) $^ -o $@
+
+bench: $(BENCH_BIN)
 
 # Each adversary/gen_*.cpp is its own program (its own main) and is built on its own.
 ADV_BIN := $(patsubst adversary/%.cpp,build/%,$(wildcard adversary/gen_*.cpp))
@@ -35,7 +40,6 @@ build/gen_%: adversary/gen_%.cpp
 	$(CXX) $(CXXFLAGS) $(INC) $< -o $@
 
 app: build/percolation_app
-bench: build/bench
 adversary: $(ADV_BIN)
 
 # Tests are built WITHOUT -DNDEBUG so assert() is active.
@@ -44,7 +48,11 @@ test: $(DBG_OBJ)
 	@for f in tests/test_*.cpp; do \
 	  [ -e "$$f" ] || continue; \
 	  n=build/tests/$$(basename $$f .cpp); \
-	  $(CXX) $(CXXFLAGS) $(INC) $$f $(DBG_OBJ) -o $$n || exit 1; \
+	  if [ "$$f" = tests/test_replay.cpp ]; then \
+	    $(CXX) $(CXXFLAGS) $(INC) $$f app/replay.cpp $(DBG_OBJ) -o $$n || exit 1; \
+	  else \
+	    $(CXX) $(CXXFLAGS) $(INC) $$f $(DBG_OBJ) -o $$n || exit 1; \
+	  fi; \
 	  echo "== $$n"; $$n || exit 1; \
 	done
 

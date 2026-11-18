@@ -1,7 +1,7 @@
 # INTERFACE.md — Percolation with union-find (Project 6)
 
-
-**Changes:** `ufFull` has `L*L+1` elements and no `BOTTOM`; equal-rank tie rule changed to match the Structure A prototype; recursive `find` accepted for `RankCompression`; header hygiene rule added; P5 reworded; open decisions rewritten. Changelog at the end.
+**Status:** v0.3 DRAFT, reconciled with the first Structure A prototype. Author: Architect (Piyush).
+**Changes since v0.2:** `ufFull` has `L*L+1` elements and no `BOTTOM`; equal-rank tie rule changed to match the Structure A prototype; recursive `find` accepted for `RankCompression`; header hygiene rule added; P5 reworded; open decisions rewritten. Changelog at the end.
 **Rule:** once merged, this file is frozen. A change needs a PR that names every affected teammate and is approved by each of them.
 
 Everything here is a contract between modules. If your code follows it, it will plug into the application, the oracle, the adversary and the benchmark without changes.
@@ -13,14 +13,14 @@ Everything here is a contract between modules. If your code follows it, it will 
 | Item | Decision |
 |---|---|
 | Language / standard | C++17, namespace `perc` |
-| Compiler flags | `-O2 -std=c++17 -Wall -Wextra`. Tests are built **without** `-DNDEBUG` so `assert` is active |
+| Compiler flags | `-O2 -std=c++17 -Wall -Wextra`. Tests are built **without** `-DNDEBUG` so `assert` is active. `app` and `bench` are built **with** `-DNDEBUG`, from separate objects in `build/rel/`, so asserts do not distort timings |
 | Headers | `#pragma once`; `.hpp` / `.cpp`. Include only what you use: no `<bits/stdc++.h>`, and no `using namespace std` in headers (the demo runs on the examiner's compiler) |
 | Grid | L × L, row 0 is the top, row L−1 is the bottom |
 | Site index | site (r, c) has index `r*L + c`, 0-indexed, so indices are `0 .. L*L-1` |
 | Virtual nodes | `TOP = L*L`, `BOTTOM = L*L + 1` |
 | Neighbours | up (r−1,c), down (r+1,c), left (r,c−1), right (r,c+1). **No wraparound** |
 | Integer types | site and element indices are `int`; counters are `uint64_t` |
-| Library containers | Lab rule: `std::map`, `std::set`, `std::priority_queue` and similar may not stand in for a structure under study; they are allowed only in tests and data generation. In `src/` and `oracle/` we use only plain arrays and write everything else ourselves, including the oracle's BFS queue (a hand-written array queue). Whether `std::vector` as plain array storage is accepted is open decision 11 |
+| Library containers | Lab rule: `std::map`, `std::set`, `std::priority_queue` and similar may not stand in for a structure under study; they are allowed only in tests and data generation. In `src/` and `oracle/` we use plain arrays: `std::vector` as array storage is allowed (decision 11), and everything else is written by us, including the oracle's BFS queue (a hand-written array queue) |
 
 ---
 
@@ -28,9 +28,9 @@ Everything here is a contract between modules. If your code follows it, it will 
 
 | Path | Contents | Owner |
 |---|---|---|
-| `src/unionfind.hpp` | `Counters`, `UnionFind`, `Variant`, `makeUnionFind` | Architect |
-| `src/percolation.hpp` | `Percolation` class declaration | Architect |
-| `src/sweep.hpp` | `SweepRecord`, `SweepResult`, sweep functions | Architect |
+| `include/unionfind.hpp` | `Counters`, `UnionFind`, `Variant`, `makeUnionFind` | Architect |
+| `include/percolation.hpp` | `Percolation` class declaration | Architect |
+| `include/sweep.hpp` | `SweepRecord`, `SweepResult`, sweep functions | Architect |
 | `src/structA/rank_compression_uf.{hpp,cpp}` | class `RankCompressionUF` | Structure A owner |
 | `src/structA/percolation.cpp`, `sweep.cpp` | implementations of the two layers above | Structure A owner |
 | `src/structB/naive_uf.*`, `rank_uf.*`, `compression_uf.*` | classes `NaiveUF`, `RankUF`, `CompressionUF` | Structure B owner |
@@ -45,7 +45,7 @@ Everything here is a contract between modules. If your code follows it, it will 
 ## 3. Union-find interface
 
 ```cpp
-// src/unionfind.hpp
+// include/unionfind.hpp
 #pragma once
 #include <cstdint>
 #include <memory>
@@ -135,7 +135,7 @@ A checker walks parents with `parentOf` to find a root without disturbing the st
 ## 4. Percolation layer
 
 ```cpp
-// src/percolation.hpp
+// include/percolation.hpp
 #pragma once
 #include "unionfind.hpp"
 #include <vector>
@@ -152,7 +152,7 @@ public:
     bool percolates();                  // some open top-row site is connected to some open bottom-row site
     int  numOpen() const;
     int  largestCluster() const;        // size of the largest cluster of open sites; 0 if none open
-                                        // requires trackClusters == true
+                                        // throws std::logic_error if trackClusters == false
     int  L() const;
 
     Counters counters() const;          // sum of the three below
@@ -170,7 +170,7 @@ public:
 }  // namespace perc
 ```
 
-`open`, `isOpen` and `isFull` throw `std::out_of_range` for coordinates outside `[0, L)`. The union-find classes themselves use `assert` only, because they are hot paths.
+`open`, `isOpen` and `isFull` throw `std::out_of_range` for coordinates outside `[0, L)`. `largestCluster()` throws `std::logic_error` if the object was built with `trackClusters == false`, because returning 0 would be a wrong answer. The constructor throws `std::invalid_argument` unless `1 <= L <= 46340` (above that, `L*L` overflows `int`), and checks this before allocating anything. The union-find classes themselves use `assert` only, because they are hot paths.
 
 ### 4.1 Why there are three union-find objects
 
@@ -215,7 +215,7 @@ For `L = 1` the single site is in both the top and bottom row, so it percolates 
 One sweep opens the sites in a random order, one at a time, and reports the state after **every** opening. This covers every occupation level in one pass.
 
 ```cpp
-// src/sweep.hpp
+// include/sweep.hpp
 #pragma once
 #include "percolation.hpp"
 #include <cstdint>
@@ -257,6 +257,8 @@ SweepResult runSweep(int L, Variant v, uint64_t seed,
 
 The threshold sample from one sweep is `p_hat = nCritical / (L*L)`.
 
+`cb` may be empty (a no-op run), so the sweep checks `if (cb)` before every call. `order` may be a prefix of the grid (section 7 allows this); if percolation never occurs in it, `nCritical` is `-1`.
+
 ### 5.1 Determinism
 
 `std::shuffle` and `std::uniform_int_distribution` give different results on different standard libraries, so the order is generated by our own code, identical everywhere:
@@ -267,7 +269,7 @@ splitmix64(x):  z = x + 0x9E3779B97F4A7C15
                 z = (z ^ (z >> 27)) * 0x94D049BB133111EB
                 return z ^ (z >> 31)               // all arithmetic mod 2^64
 
-sweepSeed(base, L, k) = splitmix64(base + (uint64_t)L * 1000003 + (uint64_t)k)
+sweepSeed(base, L, k) = splitmix64( splitmix64( splitmix64(base) ^ (uint64_t)L ) ^ (uint64_t)k )
 
 makeOpeningOrder(L, seed):
     rng = std::mt19937_64(seed)
@@ -277,6 +279,8 @@ makeOpeningOrder(L, seed):
         swap(a[i], a[j])
     return a
 ```
+
+The additive form used in v0.3 gave `sweepSeed(b, L, k+1) == sweepSeed(b+1, L, k)`, so two runs with neighbouring base seeds shared sweeps. Mixing at every step removes that.
 
 The same seed gives the same order for all four variants, so their `SweepRecord` sequences must be identical (invariant S2); only counters and time differ.
 
@@ -332,20 +336,23 @@ f x        # find(x)
 
 ```
 percolation_app --sizes 50,100,200,500,1000 --sweeps T --variant rank_compress|naive|rank|compress|all
-                --seed S --out DIR [--clusters] [--replay FILE]
+                --seed S --out DIR [--clusters] [--cluster-sweeps K] [--replay FILE]
 ```
 
-All output files go to `DIR` (default `results/`). **Provisional**: the exact columns of `extrapolation.csv` and `clusters.csv` are settled with the Analyst.
+All output files go to `DIR` (default `results/raw/`). **Provisional**: the exact columns of `extrapolation.csv` and `clusters.csv` are settled with the Analyst in week 2.
 
 | File | One row per | Columns |
 |---|---|---|
-| `sweeps.csv` | sweep | `variant,L,sweep,seed,n_critical,p_hat,finds,hops,unions,time_ns` |
+| `sweeps.csv` | sweep | `variant,L,sweep,seed,n_critical,p_hat,finds_perc,hops_perc,unions_perc,finds_full,hops_full,unions_full,finds_clust,hops_clust,unions_clust,time_ns` |
 | `summary.csv` | (variant, L) | `variant,L,T,mean_p,sd,se,ci_low,ci_high` |
 | `extrapolation.csv` | variant | `variant,nu,p_c,a,p_c_se` |
 | `clusters.csv` | (variant, L, size) | `variant,L,at_n,size,count` |
 
 - `se = sd / sqrt(T)`, `ci_low/high = mean_p ∓ 1.96 * se`.
-- Extrapolation fits `p(L) = p_c + a * L^(-1/nu)` with `nu = 4/3`, by least squares of `mean_p` against `L^(-3/4)`.
+- `clusters.csv` (only with `--clusters`): `at_n = floor(0.592746 * L^2)` is the occupation level; `count` is the number of clusters of that `size`, summed over the first `K` sweeps (`--cluster-sweeps`, default 10) of that size. Sizes are read from `ufClust`, one count per cluster.
+- `sweeps.csv` is written with `stopAtPercolation = true` and cluster tracking on, so its counters cover each sweep up to the first percolation, for all three structures.
+- `sweeps.csv` reports each structure's counters separately (the three `Counters` in `SweepResult`). The `*_clust` columns are 0 when clusters are not tracked.
+- Extrapolation fits `p(L) = p_c + a * L^(-1/nu)` with `nu = 4/3`, by **weighted** least squares of `mean_p` against `L^(-3/4)`, with weights `1/se^2`; `p_c_se` comes from the fit. The application does this (the lab document requires the extrapolation in the application), and the Analyst's script repeats it independently as a cross-check. The two must agree.
 - The seed of every sweep is stored in `sweeps.csv`, so any figure can be regenerated.
 
 ---
@@ -387,6 +394,57 @@ Each one is checkable. The Oracle owner writes a checker for every line. Checker
 | `make test` | builds and runs unit tests and the differential test |
 | `make app` | builds `percolation_app` |
 | `make bench` | builds and runs the benchmark harness |
-| `./run_all.sh` | tests, then the application, then all benchmarks (the one command in README) |
+| `./scripts/run_all.sh` | tests, then the application, then all benchmarks (the one command in README) |
 
+---
 
+## 11. Decisions
+
+**Decided in v0.3** (each owner confirms by ticking the sign-off table):
+
+1. `ufFull` has `L*L + 1` elements and no `BOTTOM` (simpler than leaving `BOTTOM` unused). Structure A already does this.
+2. Equal-rank tie rule: `parent[rb] = ra`, `rank[ra]++`, which matches the Structure A prototype and costs it no change.
+3. Recursive `find` is accepted for `RankCompression`; `Compression` must be iterative.
+4. Three union-find objects (4.1). **Structure A owner must add `ufClust`**: the prototype's single structure gives wrong largest-cluster values (example in 4.1).
+5. Method names are `open`, `isOpen`, `isFull`, `percolates`, `numOpen`, `largestCluster`. The oracle uses the same names so one test loop drives both.
+
+**Decided in v0.3 rev 3 (after the Analyst's review):**
+
+11. **Library use.** `std::vector` as plain array storage is allowed in `src/` and `oracle/`; no other library container there. The Architect still asks the instructor to confirm. If the answer is no, the classes switch to `std::unique_ptr<T[]>`.
+12. **Seeds.** `sweepSeed` mixes at every step (5.1). This changes every seed, so it is done before any results exist.
+13. **Build flags.** `app` and `bench` are built with `-DNDEBUG` from separate objects; tests keep asserts (section 1).
+14. **Counters.** `sweeps.csv` has per-structure counter columns (section 8).
+15. **Extrapolation.** Done in the application by weighted least squares, cross-checked by the Analyst's script (section 8).
+16. **Robustness.** `largestCluster()` throws without cluster tracking, the constructor rejects `L > 46340`, and the sweep accepts an empty callback and a partial order (sections 4 and 5).
+
+**Still open:**
+
+6. **Debug accessors** (3.3). Structure A and B owners: implement `parentOf`, `rankOf`, `sizeAtRoot`. Confirm the `rankOf` convention (`-1` when there is no rank).
+7. **Checker scope.** Oracle owner: are the accessors in 3.3 and section 4 enough to test every invariant in section 9?
+8. **Threshold estimator.** One sample per sweep is `nCritical / L^2`. Analyst: confirm this matches D6.
+9. **CSV columns** for `extrapolation.csv` and `clusters.csv` (Analyst).
+10. **Replay flag.** Should `--replay` accept both file kinds? (Adversary)
+
+---
+
+## 12. Sign-off
+
+| Person | Reviewed sections | Approved |
+|---|---|---|
+| Structure A owner | 3, 3.3, 4, 5, 9 | ☐ |
+| Structure B owner | 3, 3.3, 9 | ☐ |
+| Oracle owner | 3.3, 4, 6, 9 | ☐ |
+| Adversary | 3.1, 7 | ☐ |
+| Analyst | 3.2, 8 | ☐ |
+
+---
+
+## 13. Changelog
+
+- **v0.3 (rev 4):** application details in section 8: `--cluster-sweeps K`, the meaning of `at_n` and `count` in `clusters.csv`, and the scope of the counters in `sweeps.csv`.
+- **v0.3 (rev 3):** after the Analyst's review: nested `sweepSeed` (5.1); per-structure counter columns and weighted extrapolation (8); `-DNDEBUG` for app and bench (1); `largestCluster()` throws without tracking and `L <= 46340` (4); empty callback and partial order in the sweep (5); `std::vector` decision recorded (11).
+- **v0.3 (rev 2):** shared headers moved to `include/` and the one-command script to `scripts/run_all.sh`, to match the required folder layout; CSV default directory moved to `results/raw/`.
+- **v0.3 (rev):** library-use rule stated precisely in section 1; open decision 11 added.
+- **v0.3:** reconciled with the first Structure A prototype: `ufFull` is `L*L+1` elements (4.1, P5); tie rule changed (3.1); recursive `find` allowed for `RankCompression` (3.1); header hygiene rule (1); decisions section rewritten (11).
+- **v0.2:** added `parentOf`, `rankOf`, `sizeAtRoot` to `UnionFind` (3.3) and `ufPerc()`, `ufFull()`, `ufClust()` to `Percolation` (4). Reworded U2/U5/P5 checks to use them. Added open decisions 6 and 7.
+- **v0.1:** first draft.
