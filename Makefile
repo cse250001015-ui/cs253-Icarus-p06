@@ -27,11 +27,15 @@ build/rel/%.o: %.cpp
 build/percolation_app: $(wildcard app/*.cpp) $(REL_OBJ)
 	$(CXX) $(CXXFLAGS) -DNDEBUG $(INC) $^ -o $@
 BENCH_BIN := $(patsubst bench/%.cpp,build/%,$(wildcard bench/bench_*.cpp))
+build/bench: bench/main.cpp $(REL_OBJ)
+	$(CXX) $(CXXFLAGS) -DNDEBUG $(INC) $^ -o $@
+
 build/bench_%: bench/bench_%.cpp $(REL_OBJ)
 	@mkdir -p build
 	$(CXX) $(CXXFLAGS) -DNDEBUG $(INC) $^ -o $@
 
-bench: $(BENCH_BIN)
+bench: build/bench $(BENCH_BIN)
+	./build/bench
 
 # Each adversary/gen_*.cpp is its own program (its own main) and is built on its own.
 ADV_BIN := $(patsubst adversary/%.cpp,build/%,$(wildcard adversary/gen_*.cpp))

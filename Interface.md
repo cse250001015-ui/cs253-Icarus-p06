@@ -1,7 +1,7 @@
 # INTERFACE.md — Percolation with union-find (Project 6)
 
-**Status:** v0.3 DRAFT, reconciled with the first Structure A prototype. Author: Architect (Piyush).
-**Changes since v0.2:** `ufFull` has `L*L+1` elements and no `BOTTOM`; equal-rank tie rule changed to match the Structure A prototype; recursive `find` accepted for `RankCompression`; header hygiene rule added; P5 reworded; open decisions rewritten. Changelog at the end.
+**Status:** v0.4 DRAFT, reconciled with the first Structure A prototype. Author: Architect (Piyush).
+**Changes since v0.3:** the application completes each Newman-Ziff sweep and writes spanning probability and mean largest-cluster size at every occupation level. Earlier v0.2 changes are listed below.
 **Rule:** once merged, this file is frozen. A change needs a PR that names every affected teammate and is approved by each of them.
 
 Everything here is a contract between modules. If your code follows it, it will plug into the application, the oracle, the adversary and the benchmark without changes.
@@ -336,7 +336,7 @@ f x        # find(x)
 
 ```
 percolation_app --sizes 50,100,200,500,1000 --sweeps T --variant rank_compress|naive|rank|compress|all
-                --seed S --out DIR [--clusters] [--cluster-sweeps K] [--replay FILE]
+                --seed S --out DIR [--clusters] [--cluster-sweeps K] [--naive-max-L N] [--replay FILE]
 ```
 
 All output files go to `DIR` (default `results/raw/`). **Provisional**: the exact columns of `extrapolation.csv` and `clusters.csv` are settled with the Analyst in week 2.
@@ -347,10 +347,13 @@ All output files go to `DIR` (default `results/raw/`). **Provisional**: the exac
 | `summary.csv` | (variant, L) | `variant,L,T,mean_p,sd,se,ci_low,ci_high` |
 | `extrapolation.csv` | variant | `variant,nu,p_c,a,p_c_se` |
 | `clusters.csv` | (variant, L, size) | `variant,L,at_n,size,count` |
+| `occupation/occupation_<variant>_L<L>.csv` | occupation level in one (variant, L) experiment | `n,p,percolation_probability,mean_largest_cluster` |
 
 - `se = sd / sqrt(T)`, `ci_low/high = mean_p ∓ 1.96 * se`.
 - `clusters.csv` (only with `--clusters`): `at_n = floor(0.592746 * L^2)` is the occupation level; `count` is the number of clusters of that `size`, summed over the first `K` sweeps (`--cluster-sweeps`, default 10) of that size. Sizes are read from `ufClust`, one count per cluster.
-- `sweeps.csv` is written with `stopAtPercolation = true` and cluster tracking on, so its counters cover each sweep up to the first percolation, for all three structures.
+- `sweeps.csv` and the threshold sample use the first percolation level, but the application completes all `L*L` openings. Its counters therefore cover the full sweep, and `occupation/` contains one aggregate row for every occupation level `n=1..L*L`.
+- `--naive-max-L N` skips the full application sweep for Naive at sizes above `N`; skipped sizes are printed and have no Naive rows in the CSVs. This is a runtime control for the slower ablation, not a correctness exemption: `make test` and `oracle-real` still exercise Naive. The one-command script defaults this cap to 200 and allows an override with `NAIVE_MAX_L`.
+- In each occupation file, `p=n/(L*L)`, `percolation_probability` is the fraction of the `T` sweeps that have percolated by level `n`, and `mean_largest_cluster` is averaged over all `T` sweeps. The variant, `L`, `T`, and base seed are encoded by the filename, `summary.csv`, and per-sweep seeds in `sweeps.csv`.
 - `sweeps.csv` reports each structure's counters separately (the three `Counters` in `SweepResult`). The `*_clust` columns are 0 when clusters are not tracked.
 - Extrapolation fits `p(L) = p_c + a * L^(-1/nu)` with `nu = 4/3`, by **weighted** least squares of `mean_p` against `L^(-3/4)`, with weights `1/se^2`; `p_c_se` comes from the fit. The application does this (the lab document requires the extrapolation in the application), and the Analyst's script repeats it independently as a cross-check. The two must agree.
 - The seed of every sweep is stored in `sweeps.csv`, so any figure can be regenerated.
@@ -441,6 +444,8 @@ Each one is checkable. The Oracle owner writes a checker for every line. Checker
 
 ## 13. Changelog
 
+- **v0.5 (draft):** added `--naive-max-L` so the full application can cap expensive Naive sweeps while tests and the benchmark still cover all variants.
+- **v0.4 (draft):** application completes every Newman-Ziff sweep and writes aggregated per-occupation spanning probability and mean largest-cluster size under `occupation/`.
 - **v0.3 (rev 4):** application details in section 8: `--cluster-sweeps K`, the meaning of `at_n` and `count` in `clusters.csv`, and the scope of the counters in `sweeps.csv`.
 - **v0.3 (rev 3):** after the Analyst's review: nested `sweepSeed` (5.1); per-structure counter columns and weighted extrapolation (8); `-DNDEBUG` for app and bench (1); `largestCluster()` throws without tracking and `L <= 46340` (4); empty callback and partial order in the sweep (5); `std::vector` decision recorded (11).
 - **v0.3 (rev 2):** shared headers moved to `include/` and the one-command script to `scripts/run_all.sh`, to match the required folder layout; CSV default directory moved to `results/raw/`.
