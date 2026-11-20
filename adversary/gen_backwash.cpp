@@ -1,6 +1,11 @@
 // adversary/gen_backwash.cpp
 // Writes an .order file that exposes backwash.
 //
+// NOTE: the expected answer (only column 0 is full) follows INTERFACE.md v0.3
+// sections 4.1/4.2 and P3: the correct isFull never uses BOTTOM, and a site
+// is full iff an open path joins it to the top row. If those sections change,
+// revisit this generator.
+//
 // Column 0 is a full top-to-bottom path (it makes the grid percolate).
 // Stubs are vertical segments in columns 2, 4, 6, ... covering rows 1..L-1.
 // Odd columns stay closed, so no stub touches column 0, another stub, or

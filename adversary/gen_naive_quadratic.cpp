@@ -1,10 +1,20 @@
 // adversary/gen_naive_quadratic.cpp
 // Writes a .unions file that makes Naive linking cost Theta(n^2).
 //
-// Usage: gen_naive_quadratic --n 1000 --out naive_quadratic_1000.unions [--finds K]
-//   --n      number of elements (>= 2)
-//   --out    output file
-//   --finds  number of "f 0" lines after the chain is built (default: n)
+// NOTE: this sequence is tied to the fixed linking rules of INTERFACE.md
+// (v0.3, section 3.1): Naive links parent[ra] = rb, so "u i i+1" builds the
+// chain 0->1->...->n-1. If section 3.1 changes, revisit this generator.
+//
+// Usage: gen_naive_quadratic --n 1000 --out naive_quadratic_1000.unions
+//                            [--finds K | --union-only]
+//   --n          number of elements (>= 2)
+//   --out        output file
+//   --finds      number of "f 0" lines after the chain is built (default: n)
+//   --union-only write only the "u" lines, no "f" lines (same as --finds 0).
+//                Useful as a baseline: building the chain costs 0 hops
+//                (every unite joins two roots), so all the quadratic cost
+//                comes from the "f 0" lines. Cannot be combined with
+//                --finds K for K > 0.
 
 #include <cstdint>
 #include <cstdlib>
@@ -15,12 +25,14 @@
 namespace perc {
 
 static void usage(const char* prog) {
-    std::cerr << "Usage: " << prog << " --n N --out FILE [--finds K]\n";
+    std::cerr << "Usage: " << prog
+              << " --n N --out FILE [--finds K | --union-only]\n";
 }
 
 int run(int argc, char** argv) {
     long long n = 0;
     long long finds = -1;          // -1 means "use n"
+    bool unionOnly = false;
     const char* outPath = nullptr;
 
     for (int i = 1; i < argc; ++i) {
@@ -28,6 +40,8 @@ int run(int argc, char** argv) {
             n = std::atoll(argv[++i]);
         } else if (std::strcmp(argv[i], "--finds") == 0 && i + 1 < argc) {
             finds = std::atoll(argv[++i]);
+        } else if (std::strcmp(argv[i], "--union-only") == 0) {
+            unionOnly = true;
         } else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
             outPath = argv[++i];
         } else {
@@ -40,6 +54,14 @@ int run(int argc, char** argv) {
         usage(argv[0]);
         return 1;
     }
+    if (unionOnly) {
+        if (finds > 0) {
+            std::cerr << "--union-only cannot be combined with --finds K > 0\n";
+            usage(argv[0]);
+            return 1;
+        }
+        finds = 0;
+    }
     if (finds < 0) finds = n;
 
     std::ofstream out(outPath);
@@ -50,7 +72,9 @@ int run(int argc, char** argv) {
 
     // Header comments (lines starting with '#' are ignored by the replay tool).
     out << "# naive-quadratic: chain 0->1->...->n-1, then repeated find(0)\n";
-    out << "# n=" << n << " finds=" << finds << "\n";
+    out << "# n=" << n << " finds=" << finds
+        << (unionOnly ? " (union-only)" : "") << "\n";
+    out << "# linking rules: INTERFACE.md v0.3 section 3.1 (Naive: parent[ra] = rb)\n";
 
     // Line 1 after comments: number of elements.
     out << n << "\n";
