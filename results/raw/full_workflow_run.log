@@ -1,0 +1,113 @@
+== build/tests/test_checkers
+checkers: all tests passed (valid states accepted, corrupt states and injected bugs rejected)
+== build/tests/test_fit
+test_fit: all checks passed
+== build/tests/test_harness
+PASS  naive          track=1  ops=30098 episodes=185
+PASS  naive          track=0  ops=30098 episodes=185
+PASS  rank           track=1  ops=30098 episodes=185
+PASS  rank           track=0  ops=30098 episodes=185
+PASS  compress       track=1  ops=30098 episodes=185
+PASS  compress       track=0  ops=30098 episodes=185
+PASS  rank_compress  track=1  ops=30098 episodes=185
+PASS  rank_compress  track=0  ops=30098 episodes=185
+CAUGHT backwash (BOTTOM in ufFull)          after     1 ops  shrunk   1 ops on L=1 -> 1 ops on L=1 (2 replays)
+   op 0 isFull(0,0): after the operation: P5: ufFull has 3 elements, expected L*L+1 = 2
+CAUGHT largest cluster read from ufFull     after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: P6: largestCluster() = 2 but the largest component has 1 sites
+CAUGHT grid wraps around                    after    36 ops  shrunk  20 ops on L=5 -> 2 ops on L=5 (26 replays)
+   op 1 open(0,2): after the operation: P3: isFull(4,2) is true but the oracle says false
+CAUGHT left neighbour forgotten             after    22 ops  shrunk   6 ops on L=5 -> 2 ops on L=4 (15 replays)
+   op 1 open(3,3): after the operation: P6: largestCluster() = 1 but the largest component has 2 sites
+CAUGHT bottom row not united to BOTTOM      after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: P4: percolates() is false but a bottom-row site is full
+CAUGHT a site closes again (P1)             after    26 ops  shrunk  10 ops on L=5 -> 5 ops on L=5 (48 replays)
+   op 4 open(4,2): after the operation: isOpen(2,0) differs from the oracle
+CAUGHT largest cluster shrinks (P6)         after    23 ops  shrunk   7 ops on L=5 -> 3 ops on L=4 (19 replays)
+   op 2 open(1,2): after the operation: P6: largestCluster() decreased from 2 to 1
+CAUGHT ufClust joins diagonals (P2)         after    55 ops  shrunk  39 ops on L=5 -> 2 ops on L=5 (21 replays)
+   op 1 open(3,3): after the operation: P2: open sites 18 and 22 are connected in ufClust but not in ufFull
+CAUGHT UF: size not updated (naive)         after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: ufPerc: U2: root 2 stores size 1 but its set has 3 elements
+CAUGHT UF: size not updated (rank)          after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: ufPerc: U2: root 0 stores size 1 but its set has 3 elements
+CAUGHT UF: rank not incremented (rank)      after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: ufPerc: U5: root 0 has rank 0 but height 1 (without compression they must be equal)
+CAUGHT UF: rank not incremented (rank+pc)   after     6 ops  shrunk   6 ops on L=1 -> 1 ops on L=1 (4 replays)
+   op 0 open(0,0): after the operation: ufPerc: U5: root 0 has height 1 > rank 0
+CAUGHT UF: every 3rd union not counted      after    26 ops  shrunk  10 ops on L=5 -> 3 ops on L=5 (24 replays)
+   op 2 open(4,2): after the operation: ufPerc: U4: number of sets dropped by 2 but counters().unions rose by 1
+CAUGHT UF: unite true on same set           after    28 ops  shrunk  12 ops on L=5 -> 2 ops on L=5 (17 replays)
+   op 1 open(4,3): after the operation: ufPerc: U4: number of sets dropped by 1 but counters().unions rose by 2
+shrinker: every failing case reduced to a 1-minimal sequence; longest is 5 ops
+replay: failing episode reproduces from its seed
+harness: all tests passed (14/14 mutants caught and shrunk)
+== build/tests/test_oracle
+oracle: all hand-worked tests passed
+== build/tests/test_pcheckers
+pcheckers: all tests passed (healthy state accepted, bad states rejected)
+== build/tests/test_replay
+test_replay: all tests passed
+== build/tests/test_smoke
+test_smoke: all checks passed
+== build/tests/test_stats
+test_stats: all checks passed
+make: Nothing to be done for 'app'.
+make: 'build/bench' is up to date.
+make: Nothing to be done for 'adversary'.
+application settings: sweeps=100 seed=171226; Naive capped at L<=200
+naive         L=50    T=100  p_c estimate = 0.59326 +/- 0.00519  (95% CI)
+naive         L=100   T=100  p_c estimate = 0.59287 +/- 0.00333  (95% CI)
+naive         L=200   T=100  p_c estimate = 0.59384 +/- 0.00179  (95% CI)
+naive         L=500   skipped (--naive-max-L=200)
+naive         L=1000  skipped (--naive-max-L=200)
+naive         extrapolated p_c = 0.59427 +/- 0.00393  (published value 0.592746)
+rank          L=50    T=100  p_c estimate = 0.59326 +/- 0.00519  (95% CI)
+rank          L=100   T=100  p_c estimate = 0.59287 +/- 0.00333  (95% CI)
+rank          L=200   T=100  p_c estimate = 0.59384 +/- 0.00179  (95% CI)
+rank          L=500   T=100  p_c estimate = 0.59310 +/- 0.00098  (95% CI)
+rank          L=1000  T=100  p_c estimate = 0.59276 +/- 0.00057  (95% CI)
+rank          extrapolated p_c = 0.59268 +/- 0.00077  (published value 0.592746)
+compress      L=50    T=100  p_c estimate = 0.59326 +/- 0.00519  (95% CI)
+compress      L=100   T=100  p_c estimate = 0.59287 +/- 0.00333  (95% CI)
+compress      L=200   T=100  p_c estimate = 0.59384 +/- 0.00179  (95% CI)
+compress      L=500   T=100  p_c estimate = 0.59310 +/- 0.00098  (95% CI)
+compress      L=1000  T=100  p_c estimate = 0.59276 +/- 0.00057  (95% CI)
+compress      extrapolated p_c = 0.59268 +/- 0.00077  (published value 0.592746)
+rank_compress L=50    T=100  p_c estimate = 0.59326 +/- 0.00519  (95% CI)
+rank_compress L=100   T=100  p_c estimate = 0.59287 +/- 0.00333  (95% CI)
+rank_compress L=200   T=100  p_c estimate = 0.59384 +/- 0.00179  (95% CI)
+rank_compress L=500   T=100  p_c estimate = 0.59310 +/- 0.00098  (95% CI)
+rank_compress L=1000  T=100  p_c estimate = 0.59276 +/- 0.00057  (95% CI)
+rank_compress extrapolated p_c = 0.59268 +/- 0.00077  (published value 0.592746)
+wrote results/raw/{sweeps,summary,extrapolation,clusters}.csv and per-level data in results/raw/occupation/
+./build/bench
+Completed L=50 (5 paired repetitions; four variants)
+Completed L=100 (5 paired repetitions; four variants)
+Completed L=200 (5 paired repetitions; four variants)
+Completed L=500 (5 paired repetitions; four variants)
+Completed L=1000 (5 paired repetitions; four variants)
+  naive L=50 mean time=238076 ns, SD=73241 ns, mean hops=25676.0
+  naive L=100 mean time=1588031 ns, SD=181928 ns, mean hops=176717.6
+  naive L=200 mean time=10564066 ns, SD=1410066 ns, mean hops=1546087.8
+  naive L=500 mean time=150622066 ns, SD=10210141 ns, mean hops=21158334.2
+  naive L=1000 mean time=1543002905 ns, SD=159096612 ns, mean hops=163726512.8
+  rank L=50 mean time=233815 ns, SD=64125 ns, mean hops=10613.4
+  rank L=100 mean time=1251135 ns, SD=142745 ns, mean hops=44199.2
+  rank L=200 mean time=5326767 ns, SD=473025 ns, mean hops=213404.2
+  rank L=500 mean time=52098423 ns, SD=4344730 ns, mean hops=1322948.8
+  rank L=1000 mean time=371196584 ns, SD=23251454 ns, mean hops=5679661.8
+  compress L=50 mean time=193637 ns, SD=44933 ns, mean hops=10881.6
+  compress L=100 mean time=1143181 ns, SD=206140 ns, mean hops=45326.2
+  compress L=200 mean time=5132516 ns, SD=600956 ns, mean hops=209280.6
+  compress L=500 mean time=54486825 ns, SD=3919224 ns, mean hops=1301794.6
+  compress L=1000 mean time=392575165 ns, SD=51537585 ns, mean hops=5279575.2
+  rank_compress L=50 mean time=186223 ns, SD=50186 ns, mean hops=9157.6
+  rank_compress L=100 mean time=1175783 ns, SD=109533 ns, mean hops=37907.8
+  rank_compress L=200 mean time=5211587 ns, SD=439254 ns, mean hops=172419.2
+  rank_compress L=500 mean time=71727418 ns, SD=12396724 ns, mean hops=1060666.8
+  rank_compress L=1000 mean time=434213260 ns, SD=28926831 ns, mean hops=4273862.0
+Wrote results/raw/percolation_sweeps.csv and results/raw/percolation_sweep_summary.csv
+Wrote results/figures/finite_size_scaling_ols.png
+Wrote results/figures/percolation_sweep_time.png
+Wrote results/figures/percolation_sweep_hops.png
