@@ -1,0 +1,28 @@
+g++ -O2 -std=c++17 -Wall -Wextra -DUSE_REAL -Ioracle -Itests -Iinclude -Isrc \
+    oracle/flood_fill.cpp oracle/diff_main.cpp src/factory.cpp src/fit.cpp src/rng.cpp src/stats.cpp src/structA/percolation.cpp src/structA/rank_compression_uf.cpp src/structA/sweep.cpp src/structB/compression_uf.cpp src/structB/naive_uf.cpp src/structB/rank_uf.cpp -o build/oracle/diff_test_real
+build/oracle/diff_test_real --ops 1000000 --seed 171226
+differential test: perc::Percolation (real) vs FloodFillOracle, seed=171226, ops=1000000 per variant, maxL=10, check-every=1, clusters=tracked
+  naive          OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  rank           OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  compress       OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  rank_compress  OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+DIFFERENTIAL TEST PASSED
+build/oracle/diff_test_real --ops 1000000 --seed 171226 --no-clusters
+differential test: perc::Percolation (real) vs FloodFillOracle, seed=171226, ops=1000000 per variant, maxL=10, check-every=1, clusters=NOT tracked
+  naive          OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  rank           OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  compress       OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+  rank_compress  OK   ops=1000166 episodes=4202 (linking rule L1 ok)
+DIFFERENTIAL TEST PASSED
+build/oracle/diff_test_real --ops 200000 --seed 171226 --maxL 40 --check-every 10
+differential test: perc::Percolation (real) vs FloodFillOracle, seed=171226, ops=200000 per variant, maxL=40, check-every=10, clusters=tracked
+  naive          OK   ops=203346 episodes=66 (linking rule L1 ok)
+  rank           OK   ops=203346 episodes=66 (linking rule L1 ok)
+  compress       OK   ops=203346 episodes=66 (linking rule L1 ok)
+  rank_compress  OK   ops=203346 episodes=66 (linking rule L1 ok)
+DIFFERENTIAL TEST PASSED
+g++ -O2 -std=c++17 -Wall -Wextra -Ioracle -Itests -Iinclude -Isrc \
+    oracle/flood_fill.cpp oracle/sweep_main.cpp src/factory.cpp src/fit.cpp src/rng.cpp src/stats.cpp src/structA/percolation.cpp src/structA/rank_compression_uf.cpp src/structA/sweep.cpp src/structB/compression_uf.cpp src/structB/naive_uf.cpp src/structB/rank_uf.cpp -o build/oracle/sweep_test
+build/oracle/sweep_test --sweeps 2000 --seed 171226
+sweep differential test: 2000 sweeps x 4 variants, seed=171226, maxL=12
+SWEEP TEST PASSED
