@@ -50,7 +50,9 @@ inline std::string opToString(const Op& o) {
 }
 
 struct DiffConfig {
-    uint64_t seed = 20260928;
+
+    uint64_t seed = 171226;
+
     uint64_t totalOps = 100000;
     int maxL = 10;                                   // grid side drawn uniformly from 1..maxL
     perc::Variant variant = perc::Variant::RankCompression;

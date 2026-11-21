@@ -14,7 +14,9 @@ ORACLE_FLAGS  ?= -O2 -std=c++17 -Wall -Wextra
 ORACLE_UF_INC := $(if $(wildcard include/unionfind.hpp),-Iinclude,$(if $(wildcard scaffold/include/unionfind.hpp),-Iscaffold/include,$(error include/unionfind.hpp not found)))
 ORACLE_INC    ?= -Ioracle -Itests $(ORACLE_UF_INC)
 ORACLE_BUILD  ?= build/oracle
-ORACLE_SEED   ?= 20260928
+
+ORACLE_SEED   ?= 171226
+
 ORACLE_OPS    ?= 1000000
 ORACLE_DEEP_OPS ?= 200000
 ORACLE_SWEEPS ?= 2000
@@ -22,7 +24,10 @@ ORACLE_CC      = $(ORACLE_CXX) $(ORACLE_FLAGS) $(ORACLE_INC)
 
 # Sources of the real structures: factory, Structure A, Structure B, sweep order helpers.
 # Override REAL_SRC if the team's layout differs.
-REAL_SRC ?= $(wildcard src/*.cpp src/structA/*.cpp src/structB/*.cpp)
+
+REAL_SRC ?= $(filter-out $(wildcard src/structB/test_*.cpp), \
+             $(wildcard src/*.cpp src/structA/*.cpp src/structB/*.cpp))
+
 REAL_INC ?= -Ioracle -Itests -Iinclude -Isrc
 
 .PHONY: oracle-test oracle-unit oracle-diff oracle-real oracle-diff-real oracle-sweep-real
