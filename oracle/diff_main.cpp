@@ -1,5 +1,6 @@
 // oracle/diff_main.cpp -- command-line differential test.
-//   ./diff_test --ops 1000000 --seed 171226 [--variant all|naive|rank|compress|rank_compress]
+
+//   ./diff_test --ops 1000000 --seed 171226 [--variant all|naive|rank|compress|rank_compress
 //               [--maxL 10] [--check-every 1] [--no-clusters]
 //               [--replay-episode SEED] [--shrink-out FILE]
 //
@@ -15,7 +16,10 @@
 //
 // Default build drives the stand-in RefPercolation. Compile with -DUSE_REAL (and -Iinclude -Isrc
 // plus the real sources) to drive perc::Percolation: that path compiles and passes against the
+
 // real Structure A (rank_compress, 10^6 operations, seed 171226); run all four variants once
+
+
 // every variant's source is on main.
 #include "differential.hpp"
 #ifdef USE_REAL

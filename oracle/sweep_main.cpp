@@ -1,7 +1,9 @@
 // oracle/sweep_main.cpp -- differential test of the Newman-Ziff sweep (runSweepOrder) against
 // the flood-fill oracle, plus invariants S1-S3. Needs the REAL sweep code, so it is built only
 // by the oracle-real target.
+
 //   ./sweep_test --sweeps 2000 --seed 171226 [--maxL 12]
+
 // For every sweep k: draw L, a flags combination (trackClusters, stopAtPercolation) and an
 // order (a full opening order from makeOpeningOrder, or a random prefix of one), run all four
 // variants on that same order and check
@@ -97,8 +99,9 @@ static std::string badOrders() {
     return "";
 }
 
-int main(int argc, char** argv) {
+
     uint64_t sweeps = 2000, seed = 171226;
+
     int maxL = 12;
     for (int i = 1; i + 1 < argc; i += 2) {
         const std::string a = argv[i];
